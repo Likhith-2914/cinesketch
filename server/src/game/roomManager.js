@@ -26,16 +26,36 @@ function createRoom(adminId, adminName, settings) {
 }
 
 function joinRoom(code, playerId, playerName) {
-  const room = rooms[code];
-  if (!room) return { error: "Room not found" };
-  if (room.status !== "waiting") return { error: "Game already started" };
-  if (room.players.length >= room.settings.maxPlayers)
-    return { error: "Room is full" };
-  if (room.players.find((p) => p.id === playerId)) return { room }; // already in room
-
-  room.players.push({ id: playerId, name: playerName, score: 0, isAdmin: false });
-  return { room };
-}
+    const room = rooms[code];
+    if (!room) return { error: "Room not found" };
+    if (room.status !== "waiting") return { error: "Game already started" };
+    if (room.players.length >= room.settings.maxPlayers)
+      return { error: "Room is full" };
+  
+    // Check if same socket is already in room (e.g. duplicate call)
+    if (room.players.find((p) => p.id === playerId)) return { room };
+  
+    // Check if name already exists
+    const existingPlayer = room.players.find(
+      (p) => p.name.toLowerCase() === playerName.toLowerCase()
+    );
+  
+    if (existingPlayer) {
+      // Only allow rejoin if the old socket is disconnected
+      if (existingPlayer.disconnected) {
+        existingPlayer.id = playerId;
+        existingPlayer.disconnected = false;
+        if (existingPlayer.isAdmin) room.admin = playerId;
+        return { room };
+      } else {
+        // Someone else is actively using this name
+        return { error: "Name already taken in this room!" };
+      }
+    }
+  
+    room.players.push({ id: playerId, name: playerName, score: 0, isAdmin: false, disconnected: false });
+    return { room };
+  }
 
 function leaveRoom(code, playerId) {
   const room = rooms[code];
@@ -64,4 +84,4 @@ function getRoom(code) {
   return rooms[code];
 }
 
-module.exports = { createRoom, joinRoom, leaveRoom, getRoom, getWordBank };
+module.exports = { createRoom, joinRoom, leaveRoom, getRoom, getWordBank, rooms };

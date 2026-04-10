@@ -9,6 +9,7 @@ const {
   joinRoom,
   leaveRoom,
   getRoom,
+  rooms,
 } = require("./game/roomManager");
 
 const app = express();
@@ -45,14 +46,25 @@ io.on("connection", (socket) => {
       return;
     }
     socket.join(roomCode.toUpperCase());
-    io.to(roomCode.toUpperCase()).emit("room_updated", result.room);
-    console.log(`👤 ${playerName} joined room ${roomCode}`);
+    // Send to the rejoining player directly
+    socket.emit("room_updated", result.room);
+    // Broadcast to everyone else in the room
+    socket.to(roomCode.toUpperCase()).emit("room_updated", result.room);
+    console.log(`👤 ${playerName} joined/rejoined room ${roomCode}`);
   });
 
   // Disconnect
   socket.on("disconnect", () => {
     console.log(`❌ Player disconnected: ${socket.id}`);
-    // Room cleanup handled per room in future
+  
+    // Mark player as disconnected in their room
+    Object.values(rooms).forEach((room) => {
+      const player = room.players.find((p) => p.id === socket.id);
+      if (player) {
+        player.disconnected = true;
+        io.to(room.code).emit("room_updated", room);
+      }
+    });
   });
 });
 

@@ -11,8 +11,21 @@ export default function Room() {
   const playerName = state?.playerName;
 
   useEffect(() => {
+    // Persist playerName across refresh
+    if (state?.playerName) {
+      sessionStorage.setItem(`playerName_${code}`, state.playerName);
+    }
+  
+    // Rejoin room on load/refresh
+    if (playerName && code) {
+      socket.connect();
+      socket.emit("join_room", { roomCode: code, playerName });
+    }
+  
     socket.on("room_updated", (updatedRoom) => setRoom(updatedRoom));
+  
     return () => socket.off("room_updated");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const copyLink = () => {
@@ -80,14 +93,21 @@ export default function Room() {
             Players ({room.players.length}/{room.settings.maxPlayers})
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {room.players.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-gray-950 font-bold text-sm">
-                  {p.name[0].toUpperCase()}
+          {room.players.map((p) => (
+            <div
+                key={p.id}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
+                p.disconnected ? "bg-gray-800 opacity-50" : "bg-gray-800"
+                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                p.disconnected ? "bg-gray-600 text-gray-400" : "bg-yellow-400 text-gray-950"
+                }`}>
+                {p.name[0].toUpperCase()}
                 </div>
                 <span className="font-medium">{p.name}</span>
-                {p.isAdmin && <span className="ml-auto text-xs text-yellow-400">👑 Admin</span>}
-              </div>
+                {p.disconnected && <span className="ml-auto text-xs text-gray-500">⚡ Reconnecting</span>}
+                {p.isAdmin && !p.disconnected && <span className="ml-auto text-xs text-yellow-400">👑 Admin</span>}
+            </div>
             ))}
           </div>
         </div>
