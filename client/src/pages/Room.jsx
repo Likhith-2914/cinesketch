@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { socket } from "../socket";
@@ -11,33 +10,59 @@ export default function Room() {
   const playerName = state?.playerName;
 
   useEffect(() => {
-    // Persist playerName across refresh
     if (state?.playerName) {
       sessionStorage.setItem(`playerName_${code}`, state.playerName);
     }
   
-    // Rejoin room on load/refresh
     if (playerName && code) {
       socket.connect();
       socket.emit("join_room", { roomCode: code, playerName });
     }
   
-    socket.on("room_updated", (updatedRoom) => setRoom(updatedRoom));
+    socket.on("room_updated", (updatedRoom) => {
+      setRoom(updatedRoom);
+      // If game already started, redirect to game
+      if (updatedRoom.status === "playing") {
+        socket.emit("rejoin_game", { roomCode: code, playerName });
+        navigate(`/game/${code}`, { state: { playerName } });
+      }
+    });
   
-    return () => socket.off("room_updated");
+    socket.on("game_started", () => {
+      navigate(`/game/${code}`, { state: { playerName } });
+    });
+  
+    return () => {
+      socket.off("room_updated");
+      socket.off("game_started");
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/join/${code}`);
-    alert("Link copied!");
-  };
+    // Add this effect:
+    useEffect(() => {
+    socket.on("game_started", () => {
+        navigate(`/game/${code}`, { state: { playerName } });
+    });
+    return () => socket.off("game_started");
 
-  if (!room) return <div className="text-white p-8">Loading room...</div>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-  const isAdmin = room.players.find(
-    (p) => p.id === socket.id && p.isAdmin
-  );
+    const copyLink = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/join/${code}`);
+        alert("Link copied!");
+    };
+
+    if (!room) return <div className="text-white p-8">Loading room...</div>;
+
+    const isAdmin = room.players.find(
+        (p) => p.id === socket.id && p.isAdmin
+    );
+
+    const handleStart = () => {
+        socket.emit("start_game", { roomCode: code });
+    };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
@@ -112,14 +137,17 @@ export default function Room() {
           </div>
         </div>
 
+        
+
         {/* Start Button (admin only) */}
         {isAdmin && (
           <button
-            disabled={room.players.length < 2}
-            className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed text-gray-950 font-black text-xl py-4 rounded-2xl transition"
-          >
+          onClick={handleStart}
+          disabled={room.players.length < 2}
+          className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed text-gray-950 font-black text-xl py-4 rounded-2xl transition"
+            >
             🎬 Start Game ({room.players.length}/2 min players)
-          </button>
+            </button>
         )}
         {!isAdmin && (
           <p className="text-center text-gray-500">Waiting for admin to start the game...</p>

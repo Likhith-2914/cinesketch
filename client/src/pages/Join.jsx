@@ -9,11 +9,25 @@ export default function Join() {
 
   const handleJoin = () => {
     if (!playerName.trim()) return alert("Enter your name!");
+
     socket.connect();
+
+    // First join the room
     socket.emit("join_room", { roomCode: code, playerName });
+
     socket.once("room_updated", (room) => {
-      navigate(`/room/${room.code}`, { state: { room, playerName } });
+      sessionStorage.setItem(`playerName_${code}`, playerName);
+
+      if (room.status === "playing") {
+        // Game in progress — rejoin game directly
+        socket.emit("rejoin_game", { roomCode: code, playerName });
+        navigate(`/game/${code}`, { state: { playerName } });
+      } else {
+        // Still in lobby
+        navigate(`/room/${code}`, { state: { room, playerName } });
+      }
     });
+
     socket.once("join_error", (err) => alert(err));
   };
 
@@ -23,7 +37,10 @@ export default function Join() {
         <h1 className="text-4xl font-black mb-2">
           🎬 <span className="text-yellow-400">Cine</span>Sketch
         </h1>
-        <p className="text-gray-400 mb-6">You've been invited to join room <span className="text-yellow-400 font-bold tracking-widest">{code}</span></p>
+        <p className="text-gray-400 mb-6">
+          You've been invited to join room{" "}
+          <span className="text-yellow-400 font-bold tracking-widest">{code}</span>
+        </p>
 
         <input
           className="w-full bg-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-4 outline-none focus:ring-2 focus:ring-yellow-400"

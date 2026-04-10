@@ -28,11 +28,14 @@ function createRoom(adminId, adminName, settings) {
 function joinRoom(code, playerId, playerName) {
     const room = rooms[code];
     if (!room) return { error: "Room not found" };
-    if (room.status !== "waiting") return { error: "Game already started" };
+  
+    // Allow rejoining if game is playing, block only finished games
+    if (room.status === "finished") return { error: "Game has ended" };
+  
     if (room.players.length >= room.settings.maxPlayers)
       return { error: "Room is full" };
   
-    // Check if same socket is already in room (e.g. duplicate call)
+    // Check if same socket already in room
     if (room.players.find((p) => p.id === playerId)) return { room };
   
     // Check if name already exists
@@ -41,14 +44,12 @@ function joinRoom(code, playerId, playerName) {
     );
   
     if (existingPlayer) {
-      // Only allow rejoin if the old socket is disconnected
       if (existingPlayer.disconnected) {
         existingPlayer.id = playerId;
         existingPlayer.disconnected = false;
         if (existingPlayer.isAdmin) room.admin = playerId;
         return { room };
       } else {
-        // Someone else is actively using this name
         return { error: "Name already taken in this room!" };
       }
     }
