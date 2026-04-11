@@ -25,9 +25,14 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
     methods: ["GET", "POST"],
+    credentials: false,
   },
+  transports: ["websocket", "polling"],
 });
 
 app.use(cors());

@@ -7,6 +7,7 @@ import Chat from "../components/Chat/Chat";
 import PlayerList from "../components/PlayerList/PlayerList";
 import CluePanel from "../components/CluePanel/CluePanel";
 import Timer from "../components/Timer/Timer";
+import { sounds } from "../utils/sounds";
 
 export default function Game() {
   const { code } = useParams();
@@ -51,9 +52,10 @@ export default function Game() {
         }));
       });
 
-    socket.on("timer_update", ({ timeLeft }) => {
-      setGameState((prev) => ({ ...prev, timeLeft }));
-    });
+      socket.on("timer_update", ({ timeLeft }) => {
+        if (timeLeft <= 10 && timeLeft > 0) sounds.timerTick(); // add this
+        setGameState((prev) => ({ ...prev, timeLeft }));
+      });
 
     socket.on("clue_update", ({ hero, heroine, movieFirstChar }) => {
         setGameState((prev) => ({
@@ -63,6 +65,7 @@ export default function Game() {
       });
 
     socket.on("player_guessed", ({ playerName: guesser, players }) => {
+      sounds.correctGuess(); 
       setGameState((prev) => ({
         ...prev,
         players,
@@ -81,6 +84,7 @@ export default function Game() {
     });
 
     socket.on("turn_end", ({ word, hero, heroine, players }) => {
+      sounds.turnEnd(); 
       setGameState((prev) => ({
         ...prev,
         status: "roundEnd",
@@ -97,6 +101,7 @@ export default function Game() {
     });
 
     socket.on("game_end", ({ players }) => {
+      sounds.gameEnd(); 
       setGameState((prev) => ({ ...prev, status: "gameEnd", players }));
     });
 

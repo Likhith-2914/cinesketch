@@ -42,10 +42,21 @@ export default function Home() {
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
       {/* Logo */}
       <div className="mb-10 text-center">
-        <h1 className="text-6xl font-black tracking-tight">
-          🎬 <span className="text-yellow-400">Cine</span>Sketch
-        </h1>
-        <p className="text-gray-400 mt-2 text-lg">Draw & Guess Telugu Movies!</p>
+        <div className="inline-flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 bg-yellow-400 rounded-xl flex items-center justify-center text-2xl">
+            🎬
+          </div>
+          <h1 className="text-5xl font-black tracking-tight">
+            <span className="text-yellow-400">Cine</span>
+            <span className="text-white">Sketch</span>
+          </h1>
+        </div>
+        <p className="text-gray-400 text-lg">Draw & Guess Telugu Movies!</p>
+        <div className="flex gap-2 justify-center mt-3">
+          <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🎭 Telugu</span>
+          <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🖌️ Draw</span>
+          <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🏆 Compete</span>
+        </div>
       </div>
 
       <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-2xl border border-gray-800">

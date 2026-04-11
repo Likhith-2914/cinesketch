@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cinesketch-server
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: CLIENT_URL
+        value: https://cinesketch.vercel.app
