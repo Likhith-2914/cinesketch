@@ -46,9 +46,9 @@ export default function Game() {
           round: data.round,
           totalRounds: data.totalRounds,
           status: "drawing",
-          clue: { hero: "", heroine: "" },
           messages: [],
           players: data.players || prev.players, // add this
+          clue: { hero: null, heroine: null, movieFirstChar: null }, // reset clues
         }));
       });
 
@@ -57,10 +57,14 @@ export default function Game() {
         setGameState((prev) => ({ ...prev, timeLeft }));
       });
 
-    socket.on("clue_update", ({ hero, heroine, movieFirstChar }) => {
+      socket.on("clue_update", ({ heroClue, heroineClue, movieFirstChar }) => {
         setGameState((prev) => ({
           ...prev,
-          clue: { hero, heroine, movieFirstChar },
+          clue: {
+            hero: heroClue ?? prev.clue.hero,
+            heroine: heroineClue ?? prev.clue.heroine,
+            movieFirstChar: movieFirstChar ?? prev.clue.movieFirstChar,
+          },
         }));
       });
 
