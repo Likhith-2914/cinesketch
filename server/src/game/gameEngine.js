@@ -105,53 +105,45 @@ function startTimer(roomCode, io) {
 }
 
 function scheduleClues(roomCode, io) {
-    const state = gameStates[roomCode];
-    if (!state) return;
-  
-    const word = state.currentWord;
-    const totalClues = 3; // hero first char, heroine first char, movie first char
-    const interval = Math.floor((state.drawTime / (totalClues + 1)) * 1000);
-  
-    let clueStep = 0;
-  
-    state.clueInterval = setInterval(() => {
-      if (state.status !== "drawing") {
-        clearInterval(state.clueInterval);
-        return;
+  const state = gameStates[roomCode];
+  if (!state) return;
+
+  const word = state.currentWord;
+  const totalClues = 3;
+  const interval = Math.floor((state.drawTime / (totalClues + 1)) * 1000);
+
+  let clueStep = 0;
+
+  state.clueInterval = setInterval(() => {
+    if (state.status !== "drawing") {
+      clearInterval(state.clueInterval);
+      return;
+    }
+
+    clueStep++;
+
+    let heroClue = null;
+    let heroineClue = null;
+    let movieFirstChar = null;
+
+    if (clueStep === 1) heroClue = word.hero[0];
+    if (clueStep === 2) heroineClue = word.heroine[0];
+    if (clueStep >= 3) {
+      movieFirstChar = word.title[0];
+      clearInterval(state.clueInterval);
+    }
+
+    state.players.forEach((player) => {
+      if (player.id !== state.currentDrawer.id && !player.disconnected) {
+        io.to(player.id).emit("clue_update", {
+          heroClue,
+          heroineClue,
+          movieFirstChar,
+        });
       }
-  
-      clueStep++;
-  
-      let heroClue = "?".repeat(word.hero.replace(/\s/g, "").length);
-      let heroineClue = "?".repeat(word.heroine.replace(/\s/g, "").length);
-      let movieClue = null;
-  
-      if (clueStep >= 1) {
-        // Reveal first character of hero
-        heroClue = word.hero[0] + "?".repeat(word.hero.replace(/\s/g, "").length - 1);
-      }
-      if (clueStep >= 2) {
-        // Reveal first character of heroine
-        heroineClue = word.heroine[0] + "?".repeat(word.heroine.replace(/\s/g, "").length - 1);
-      }
-      if (clueStep >= 3) {
-        // Reveal first character of movie title
-        movieClue = word.title[0];
-        clearInterval(state.clueInterval);
-      }
-  
-      // Send to connected non-drawers only
-      state.players.forEach((player) => {
-        if (player.id !== state.currentDrawer.id && !player.disconnected) {
-          io.to(player.id).emit("clue_update", {
-            hero: heroClue,
-            heroine: heroineClue,
-            movieFirstChar: movieClue,
-          });
-        }
-      });
-    }, interval);
-  }
+    });
+  }, interval);
+}
 
 function maskName(name, revealedIndices) {
   let letterIndex = 0;
