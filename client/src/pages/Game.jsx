@@ -37,21 +37,21 @@ export default function Game() {
     }
 
     socket.on("turn_start", (data) => {
-        setGameState((prev) => ({
-          ...prev,
-          isDrawer: data.isDrawer,
-          word: data.word,
-          wordLength: data.wordLength || data.word.length,
-          drawer: data.drawer,
-          round: data.round,
-          totalRounds: data.totalRounds,
-          status: "drawing",
-          messages: [],
-          players: data.players || prev.players, // add this
-          clue: { hero: null, heroine: null, movieFirstChar: null }, // reset clues
-        }));
-      });
-
+      setGameState((prev) => ({
+        ...prev,
+        isDrawer: data.isDrawer,
+        word: data.word,
+        wordLength: data.wordLength || data.word.length,
+        drawer: data.drawer,
+        round: data.round,
+        totalRounds: data.totalRounds,
+        status: "drawing",
+        clue: { hero: null, heroine: null, movieFirstChar: null }, // reset here
+        messages: [],
+        players: data.players || prev.players,
+      }));
+    });
+    
       socket.on("timer_update", ({ timeLeft }) => {
         if (timeLeft <= 10 && timeLeft > 0) sounds.timerTick(); // add this
         setGameState((prev) => ({ ...prev, timeLeft }));
@@ -199,14 +199,15 @@ export default function Game() {
           </div>
 
           {/* Clue Panel */}
-          {!gameState.isDrawer && (gameState.clue.hero || gameState.clue.heroine) && (
-            <CluePanel
-            hero={gameState.clue.hero}
-            heroine={gameState.clue.heroine}
-            movieFirstChar={gameState.clue.movieFirstChar}
-          />
-          )}
-
+          {!gameState.isDrawer && (
+            gameState.clue.hero || gameState.clue.heroine || gameState.clue.movieFirstChar
+              ) && (
+                <CluePanel
+                  heroClue={gameState.clue.hero}
+                  heroineClue={gameState.clue.heroine}
+                  movieFirstChar={gameState.clue.movieFirstChar}
+                />
+              )}
           {/* Canvas */}
           <Canvas
             roomCode={code}

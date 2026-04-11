@@ -109,10 +109,9 @@ function scheduleClues(roomCode, io) {
   if (!state) return;
 
   const word = state.currentWord;
-  const totalClues = 3;
-  const interval = Math.floor((state.drawTime / (totalClues + 1)) * 1000);
+  const interval = Math.floor((state.drawTime / 4) * 1000);
 
-  let clueStep = 0;
+  state.currentClueStep = 0; // track step
 
   state.clueInterval = setInterval(() => {
     if (state.status !== "drawing") {
@@ -120,26 +119,19 @@ function scheduleClues(roomCode, io) {
       return;
     }
 
-    clueStep++;
+    state.currentClueStep++;
 
-    let heroClue = null;
-    let heroineClue = null;
-    let movieFirstChar = null;
+    const payload = {
+      heroClue: state.currentClueStep >= 1 ? word.hero[0] : null,
+      heroineClue: state.currentClueStep >= 2 ? word.heroine[0] : null,
+      movieFirstChar: state.currentClueStep >= 3 ? word.title[0] : null,
+    };
 
-    if (clueStep === 1) heroClue = word.hero[0];
-    if (clueStep === 2) heroineClue = word.heroine[0];
-    if (clueStep >= 3) {
-      movieFirstChar = word.title[0];
-      clearInterval(state.clueInterval);
-    }
+    if (state.currentClueStep >= 3) clearInterval(state.clueInterval);
 
     state.players.forEach((player) => {
       if (player.id !== state.currentDrawer.id && !player.disconnected) {
-        io.to(player.id).emit("clue_update", {
-          heroClue,
-          heroineClue,
-          movieFirstChar,
-        });
+        io.to(player.id).emit("clue_update", payload);
       }
     });
   }, interval);
@@ -297,14 +289,15 @@ function rejoinGame(roomCode, playerId, playerName, io, socket) {
 if (state.clueState.heroRevealed.length > 0 || state.clueState.heroineRevealed.length > 0) {
     // Replace the clue_update emit inside rejoinGame with:
   if (state.status === "drawing") {
-    const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
-    const clueStep = Math.floor(elapsed / (state.drawTime / 4));
-
+    // Inside rejoinGame, replace clue emit with:
+  if (state.status === "drawing") {
+    const step = state.currentClueStep || 0;
     socket.emit("clue_update", {
-      heroClue: clueStep >= 1 ? state.currentWord.hero[0] : null,
-      heroineClue: clueStep >= 2 ? state.currentWord.heroine[0] : null,
-      movieFirstChar: clueStep >= 3 ? state.currentWord.title[0] : null,
+      heroClue: step >= 1 ? state.currentWord.hero[0] : null,
+      heroineClue: step >= 2 ? state.currentWord.heroine[0] : null,
+      movieFirstChar: step >= 3 ? state.currentWord.title[0] : null,
     });
+  }
 }
   }
 
