@@ -295,14 +295,17 @@ function rejoinGame(roomCode, playerId, playerName, io, socket) {
   // Send current clue state if any revealed
   // Inside rejoinGame, replace the clue_update emit:
 if (state.clueState.heroRevealed.length > 0 || state.clueState.heroineRevealed.length > 0) {
+    // Replace the clue_update emit inside rejoinGame with:
+  if (state.status === "drawing") {
     const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
     const clueStep = Math.floor(elapsed / (state.drawTime / 4));
-  
+
     socket.emit("clue_update", {
-      hero: clueStep >= 1 ? state.currentWord.hero[0] + "?".repeat(state.currentWord.hero.replace(/\s/g, "").length - 1) : "?".repeat(state.currentWord.hero.replace(/\s/g, "").length),
-      heroine: clueStep >= 2 ? state.currentWord.heroine[0] + "?".repeat(state.currentWord.heroine.replace(/\s/g, "").length - 1) : "?".repeat(state.currentWord.heroine.replace(/\s/g, "").length),
+      heroClue: clueStep >= 1 ? state.currentWord.hero[0] : null,
+      heroineClue: clueStep >= 2 ? state.currentWord.heroine[0] : null,
       movieFirstChar: clueStep >= 3 ? state.currentWord.title[0] : null,
     });
+}
   }
 
   return true;
