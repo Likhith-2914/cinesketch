@@ -1,4 +1,3 @@
-const teluguMovies = require("../../../shared/words/telugu");
 const rooms = {};
 const { fetchMoviesForLanguage } = require("./movieFetcher");
 const fallbackTelugu = require("../../../shared/words/telugu");
