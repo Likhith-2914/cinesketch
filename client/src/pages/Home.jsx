@@ -51,9 +51,9 @@ export default function Home() {
             <span className="text-white">Sketch</span>
           </h1>
         </div>
-        <p className="text-gray-400 text-lg">Draw & Guess Telugu Movies!</p>
+        <p className="text-gray-400 text-lg">Draw & Guess Movies!</p>
         <div className="flex gap-2 justify-center mt-3">
-          <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🎭 Telugu</span>
+          <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🎭 Movie</span>
           <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🖌️ Draw</span>
           <span className="bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-full">🏆 Compete</span>
         </div>
@@ -96,7 +96,7 @@ export default function Home() {
               onChange={(e) => setSettings({ ...settings, language: e.target.value })}
             >
               <option value="telugu">Telugu 🎬</option>
-              <option value="hindi" disabled>Hindi (coming soon)</option>
+              <option value="hindi">Hindi 🎥</option>
             </select>
 
             <label className="text-gray-400 text-sm">Rounds</label>

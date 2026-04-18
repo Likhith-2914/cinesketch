@@ -1,5 +1,43 @@
 const teluguMovies = require("../../../shared/words/telugu");
 const rooms = {};
+const { fetchMoviesForLanguage } = require("./movieFetcher");
+const fallbackTelugu = require("../../../shared/words/telugu");
+
+// Cache per language
+const movieCache = {
+  telugu: null,
+  hindi: null,
+  lastFetched: null,
+};
+
+async function initMovieBank() {
+  console.log("🎬 Initializing movie banks...");
+  try {
+    const [telugu, hindi] = await Promise.all([
+      fetchMoviesForLanguage("telugu", 1), // just 1 page for now
+      fetchMoviesForLanguage("hindi", 1),
+    ]);
+
+    movieCache.telugu = telugu?.length ? telugu : fallbackTelugu;
+    movieCache.hindi = hindi?.length ? hindi : fallbackTelugu; // fallback to telugu if hindi fails
+    movieCache.lastFetched = new Date();
+
+    console.log(`✅ Movie banks ready — Telugu: ${movieCache.telugu.length}, Hindi: ${movieCache.hindi.length}`);
+  } catch (e) {
+    console.error("❌ Movie bank init failed:", e.message);
+    movieCache.telugu = fallbackTelugu;
+    movieCache.hindi = fallbackTelugu;
+  }
+}
+
+// Refresh every 30 days
+function scheduleMonthlyRefresh() {
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+  setInterval(async () => {
+    console.log("🔄 Monthly movie bank refresh...");
+    await initMovieBank();
+  }, thirtyDays);
+}
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -75,14 +113,35 @@ function leaveRoom(code, playerId) {
 }
 
 function getWordBank(language, decade, difficulty) {
-  let movies = teluguMovies; // expand for other languages later
-  if (decade !== "all") movies = movies.filter((m) => m.decade === decade);
-  if (difficulty !== "all") movies = movies.filter((m) => m.difficulty === difficulty);
-  return movies.sort(() => Math.random() - 0.5); // shuffle
+  let movies = movieCache[language] || fallbackTelugu;
+
+  if (decade !== "all") {
+    const decades = decade.split(",");
+    movies = movies.filter((m) => decades.includes(m.decade));
+  }
+  if (difficulty !== "all") {
+    movies = movies.filter((m) => m.difficulty === difficulty);
+  }
+
+  // If filters leave too few movies, relax filters
+  if (movies.length < 10) {
+    movies = movieCache[language] || fallbackTelugu;
+  }
+
+  return [...movies].sort(() => Math.random() - 0.5);
 }
 
 function getRoom(code) {
   return rooms[code];
 }
 
-module.exports = { createRoom, joinRoom, leaveRoom, getRoom, getWordBank, rooms };
+module.exports = {
+  createRoom,
+  joinRoom,
+  leaveRoom,
+  getRoom,
+  getWordBank,
+  rooms,
+  initMovieBank,
+  scheduleMonthlyRefresh,
+};

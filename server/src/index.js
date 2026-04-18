@@ -3,6 +3,15 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
+const {
+  createRoom,
+  joinRoom,
+  leaveRoom,
+  getRoom,
+  rooms,
+  initMovieBank,
+  scheduleMonthlyRefresh,
+} = require("./game/roomManager");
 
 const {
     startGame,
@@ -12,13 +21,6 @@ const {
     handlePlayerDisconnect,
   } = require("./game/gameEngine");
 
-const {
-  createRoom,
-  joinRoom,
-  leaveRoom,
-  getRoom,
-  rooms,
-} = require("./game/roomManager");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -149,6 +151,10 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
+// Initialize movie bank on startup
+initMovieBank();
+scheduleMonthlyRefresh();
+
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
