@@ -131,24 +131,31 @@ io.on("connection", (socket) => {
   });
   
   // Chat & guessing
-  socket.on("submit_guess", ({ roomCode, playerName, guess }) => {
+  socket.on("send_message", ({ roomCode, playerName, message }) => {
     const state = getGameState(roomCode);
   
-    if (state?.currentDrawer?.id === socket.id) return;
-  
-    const { correct, locked } = checkGuess(roomCode, socket.id, playerName, guess, io);
-  
-    if (locked && !correct) {
-      // Already handled in checkGuess with wrong_guess event
+    if (state?.currentDrawer?.id === socket.id) {
+      socket.emit("chat_message", {
+        senderName: "System",
+        message: "Drawers can't chat during their turn!",
+        type: "system",
+      });
       return;
     }
   
-    if (!correct) {
-      // Broadcast wrong guess attempt to room (not the answer)
+    const isCorrect = checkGuess(roomCode, socket.id, playerName, message, io);
+  
+    if (isCorrect) {
+      socket.emit("chat_message", {
+        senderName: "🎉 System",
+        message: "You guessed it correctly!",
+        type: "correct",
+      });
+    } else {
       io.to(roomCode).emit("chat_message", {
-        senderName: "🎬 System",
-        message: `${playerName} guessed wrong!`,
-        type: "system",
+        senderName: playerName,
+        message,
+        type: "normal",
       });
     }
   });

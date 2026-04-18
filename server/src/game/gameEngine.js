@@ -64,35 +64,18 @@ function startTurn(roomCode, io) {
   state.currentWord = word;
   state.usedWords.push(word.title);
 
-  state.wrongGuessers = [];
-
-  // Generate options for this turn
-  const options = generateOptions(word, state.wordBank);
-  state.currentOptions = options; // store for rejoining players
-
-  // Everyone else gets options instead of blanks
+  // Notify all players
   state.players.forEach((player) => {
-    if (player.id === state.currentDrawer.id) {
-      io.to(player.id).emit("turn_start", {
-        word: word.title,
-        hero: word.hero,
-        heroine: word.heroine,
-        isDrawer: true,
-        drawer: state.currentDrawer.name,
-        round: state.round,
-        totalRounds: state.totalRounds,
-        players: state.players,
-      });
-    } else {
-      io.to(player.id).emit("turn_start", {
-        isDrawer: false,
-        drawer: state.currentDrawer.name,
-        round: state.round,
-        totalRounds: state.totalRounds,
-        players: state.players,
-        options,
-      });
-    }
+    const isDrawer = player.id === state.currentDrawer.id;
+    io.to(player.id).emit("turn_start", {
+      word: isDrawer ? word.title : "_".repeat(word.title.length),
+      wordLength: word.title.length,
+      isDrawer,
+      drawer: state.currentDrawer.name,
+      round: state.round,
+      totalRounds: state.totalRounds,
+      players: state.players,
+    });
   });
 
   startTimer(roomCode, io);
@@ -126,9 +109,9 @@ function scheduleClues(roomCode, io) {
   if (!state) return;
 
   const word = state.currentWord;
-  const interval = Math.floor((state.drawTime / 3) * 1000);
+  const interval = Math.floor((state.drawTime / 4) * 1000);
 
-  state.currentClueStep = 0;
+  state.currentClueStep = 0; // track step
 
   state.clueInterval = setInterval(() => {
     if (state.status !== "drawing") {
@@ -141,9 +124,10 @@ function scheduleClues(roomCode, io) {
     const payload = {
       heroClue: state.currentClueStep >= 1 ? word.hero[0] : null,
       heroineClue: state.currentClueStep >= 2 ? word.heroine[0] : null,
+      movieFirstChar: state.currentClueStep >= 3 ? word.title[0] : null,
     };
 
-    if (state.currentClueStep >= 2) clearInterval(state.clueInterval);
+    if (state.currentClueStep >= 3) clearInterval(state.clueInterval);
 
     state.players.forEach((player) => {
       if (player.id !== state.currentDrawer.id && !player.disconnected) {
@@ -164,65 +148,51 @@ function maskName(name, revealedIndices) {
 }
 
 function checkGuess(roomCode, playerId, playerName, guess, io) {
-  const state = gameStates[roomCode];
-  if (!state || state.status !== "drawing") return { correct: false, locked: false };
-
-  if (playerId === state.currentDrawer?.id) return { correct: false, locked: false };
-
-  const player = state.players.find(
-    (p) => p.id === playerId || p.name.toLowerCase() === playerName.toLowerCase()
-  );
-  if (!player) return { correct: false, locked: false };
-
-  // Already guessed correctly
-  if (state.guessedPlayers.includes(player.name)) {
-    return { correct: true, locked: true };
-  }
-
-  // Already guessed wrong — locked out
-  if (state.wrongGuessers?.includes(player.name)) {
-    return { correct: false, locked: true };
-  }
-
-  const correct =
-    guess.trim().toLowerCase() === state.currentWord.title.toLowerCase();
-
-  if (correct) {
-    state.guessedPlayers.push(player.name);
-
-    const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
-    const timeLeft = Math.max(0, state.drawTime - elapsed);
-    const points = Math.max(100, Math.floor((timeLeft / state.drawTime) * 500));
-
-    player.score += points;
-
-    io.to(roomCode).emit("player_guessed", {
-      playerName: player.name,
-      players: state.players,
-    });
-
-    // End turn if all connected non-drawers guessed
-    const connectedGuessers = state.players.filter(
-      (p) => p.name !== state.currentDrawer.name && !p.disconnected
+    const state = gameStates[roomCode];
+    if (!state || state.status !== "drawing") return false;
+    if (playerId === state.currentDrawer.id) return false;
+  
+    // Find by both ID and name to handle rejoin edge cases
+    const player = state.players.find(
+      (p) => p.id === playerId || p.name.toLowerCase() === playerName.toLowerCase()
     );
-    if (state.guessedPlayers.length >= connectedGuessers.length) {
-      clearInterval(state.timerInterval);
-      clearInterval(state.clueInterval);
-      endTurn(roomCode, io);
+  
+    if (!player) return false;
+    if (state.guessedPlayers.includes(player.name)) return false;
+  
+    const correct =
+      guess.trim().toLowerCase() === state.currentWord.title.toLowerCase();
+  
+    if (correct) {
+      state.guessedPlayers.push(player.name); // use name not ID
+  
+      const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
+      const timeLeft = Math.max(0, state.drawTime - elapsed);
+      const points = Math.max(100, Math.floor((timeLeft / state.drawTime) * 500));
+  
+      player.score += points;
+  
+      const drawer = state.players.find((p) => p.id === state.currentDrawer.id);
+      if (drawer) drawer.score += 50;
+  
+      io.to(roomCode).emit("player_guessed", {
+        playerName: player.name,
+        players: state.players,
+      });
+  
+      // End turn if all connected non-drawers guessed
+      const connectedGuessers = state.players.filter(
+        (p) => p.name !== state.currentDrawer.name && !p.disconnected
+      );
+      if (state.guessedPlayers.length >= connectedGuessers.length) {
+        clearInterval(state.timerInterval);
+        clearInterval(state.clueInterval);
+        endTurn(roomCode, io);
+      }
     }
-  } else {
-    // Wrong answer — lock out this player
-    if (!state.wrongGuessers) state.wrongGuessers = [];
-    state.wrongGuessers.push(player.name);
-
-    // Notify only this player they were wrong
-    io.to(playerId).emit("wrong_guess", {
-      message: "❌ Wrong answer! You're locked out for this turn.",
-    });
+  
+    return correct;
   }
-
-  return { correct, locked: !correct };
-}
 
 // Called when drawer disconnects mid-turn
 function handleDrawerLeft(roomCode, io) {
@@ -300,15 +270,17 @@ function rejoinGame(roomCode, playerId, playerName, io, socket) {
   const isDrawer =
     state.currentDrawer?.name.toLowerCase() === playerName.toLowerCase();
 
-    socket.emit("turn_start", {
-      word: isDrawer ? state.currentWord.title : null,
-      isDrawer,
-      drawer: state.currentDrawer?.name,
-      round: state.round,
-      totalRounds: state.totalRounds,
-      players: state.players,
-      options: isDrawer ? null : state.currentOptions,
-    });
+  socket.emit("turn_start", {
+    word: isDrawer
+      ? state.currentWord.title
+      : "_".repeat(state.currentWord.title.length),
+    wordLength: state.currentWord.title.length,
+    isDrawer,
+    drawer: state.currentDrawer?.name,
+    round: state.round,
+    totalRounds: state.totalRounds,
+    players: state.players,
+  });
 
   socket.emit("timer_update", { timeLeft: state.currentTimeLeft || 0 });
 
@@ -372,36 +344,6 @@ function endGame(roomCode, io) {
 
 function getGameState(roomCode) {
   return gameStates[roomCode];
-}
-
-function generateOptions(correctMovie, wordBank) {
-  const decoys = wordBank
-    .filter(
-      (m) =>
-        m.title !== correctMovie.title &&
-        m.decade === correctMovie.decade
-    )
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-
-  // If not enough same-decade movies, fill from full bank
-  if (decoys.length < 3) {
-    const extras = wordBank
-      .filter(
-        (m) =>
-          m.title !== correctMovie.title &&
-          !decoys.find((d) => d.title === m.title)
-      )
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3 - decoys.length);
-    decoys.push(...extras);
-  }
-
-  const options = [correctMovie, ...decoys]
-    .map((m) => m.title)
-    .sort(() => Math.random() - 0.5);
-
-  return options;
 }
 
 module.exports = {
