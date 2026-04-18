@@ -50,6 +50,10 @@ app.use(express.json());
 
 app.get("/", (req, res) => res.send("CineSketch server is running 🎬"));
 
+// Initialize movie bank on startup
+initMovieBank();
+scheduleMonthlyRefresh();
+
 io.on("connection", (socket) => {
   console.log(`✅ Player connected: ${socket.id}`);
 
@@ -159,9 +163,6 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-// Initialize movie bank on startup
-initMovieBank();
-scheduleMonthlyRefresh();
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
