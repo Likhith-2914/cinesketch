@@ -14,12 +14,12 @@ async function initMovieBank() {
   console.log("🎬 Initializing movie banks...");
   try {
     const [telugu, hindi] = await Promise.all([
-      fetchMoviesForLanguage("telugu", 1), // just 1 page for now
-      fetchMoviesForLanguage("hindi", 1),
+      fetchMoviesForLanguage("telugu", 8),
+      fetchMoviesForLanguage("hindi", 8),
     ]);
 
     movieCache.telugu = telugu?.length ? telugu : fallbackTelugu;
-    movieCache.hindi = hindi?.length ? hindi : fallbackTelugu; // fallback to telugu if hindi fails
+    movieCache.hindi = hindi?.length ? hindi : fallbackTelugu;
     movieCache.lastFetched = new Date();
 
     console.log(`✅ Movie banks ready — Telugu: ${movieCache.telugu.length}, Hindi: ${movieCache.hindi.length}`);
@@ -33,10 +33,12 @@ async function initMovieBank() {
 // Refresh every 30 days
 function scheduleMonthlyRefresh() {
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  setInterval(async () => {
-    console.log("🔄 Monthly movie bank refresh...");
-    await initMovieBank();
-  }, thirtyDays);
+  setTimeout(() => {
+    setInterval(async () => {
+      console.log("🔄 Monthly movie bank refresh...");
+      await initMovieBank();
+    }, thirtyDays);
+  }, thirtyDays); // wait 30 days before first refresh too
 }
 
 function generateRoomCode() {

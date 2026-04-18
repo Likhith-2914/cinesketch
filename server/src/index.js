@@ -1,5 +1,6 @@
 const express = require("express");
 const http = require("http");
+const https = require("https");
 const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
@@ -36,6 +37,13 @@ const io = new Server(httpServer, {
   },
   transports: ["websocket", "polling"],
 });
+
+// Keep alive ping every 14 minutes
+setInterval(() => {
+  https.get(`https://cinesketch-server.onrender.com`, () => {
+    console.log("💓 Keep alive ping");
+  }).on("error", () => {});
+}, 14 * 60 * 1000);
 
 app.use(cors());
 app.use(express.json());
