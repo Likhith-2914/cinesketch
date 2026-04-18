@@ -148,52 +148,48 @@ function maskName(name, revealedIndices) {
 }
 
 function checkGuess(roomCode, playerId, playerName, guess, io) {
-    const state = gameStates[roomCode];
-    if (!state || state.status !== "drawing") return false;
-    if (playerId === state.currentDrawer.id) return false;
-  
-    // Find by both ID and name to handle rejoin edge cases
-    const player = state.players.find(
-      (p) => p.id === playerId || p.name.toLowerCase() === playerName.toLowerCase()
+  const state = gameStates[roomCode];
+  if (!state || state.status !== "drawing") return false;
+  if (playerId === state.currentDrawer?.id) return false;
+
+  const player = state.players.find(
+    (p) => p.id === playerId || p.name.toLowerCase() === playerName.toLowerCase()
+  );
+  if (!player) return false;
+  if (state.guessedPlayers.includes(player.name)) return false;
+
+  const correct =
+    guess.trim().toLowerCase() === state.currentWord.title.toLowerCase();
+
+  if (correct) {
+    state.guessedPlayers.push(player.name);
+
+    const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
+    const timeLeft = Math.max(0, state.drawTime - elapsed);
+    const timeFraction = timeLeft / state.drawTime; // 1.0 = instant, 0.0 = last second
+
+    // Guesser points — speed based, min 100
+    const guesserPoints = Math.max(100, Math.floor(timeFraction * 500));
+    player.score += guesserPoints;
+
+    io.to(roomCode).emit("player_guessed", {
+      playerName: player.name,
+      players: state.players,
+    });
+
+    // Check if all connected non-drawers guessed
+    const connectedGuessers = state.players.filter(
+      (p) => p.name !== state.currentDrawer.name && !p.disconnected
     );
-  
-    if (!player) return false;
-    if (state.guessedPlayers.includes(player.name)) return false;
-  
-    const correct =
-      guess.trim().toLowerCase() === state.currentWord.title.toLowerCase();
-  
-    if (correct) {
-      state.guessedPlayers.push(player.name); // use name not ID
-  
-      const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
-      const timeLeft = Math.max(0, state.drawTime - elapsed);
-      const points = Math.max(100, Math.floor((timeLeft / state.drawTime) * 500));
-  
-      player.score += points;
-  
-      const drawer = state.players.find((p) => p.id === state.currentDrawer.id);
-      if (drawer) drawer.score += 50;
-  
-      io.to(roomCode).emit("player_guessed", {
-        playerName: player.name,
-        players: state.players,
-      });
-  
-      // End turn if all connected non-drawers guessed
-      const connectedGuessers = state.players.filter(
-        (p) => p.name !== state.currentDrawer.name && !p.disconnected
-      );
-      if (state.guessedPlayers.length >= connectedGuessers.length) {
-        clearInterval(state.timerInterval);
-        clearInterval(state.clueInterval);
-        endTurn(roomCode, io);
-      }
+    if (state.guessedPlayers.length >= connectedGuessers.length) {
+      clearInterval(state.timerInterval);
+      clearInterval(state.clueInterval);
+      endTurn(roomCode, io);
     }
-  
-    return correct;
   }
 
+  return correct;
+}
 // Called when drawer disconnects mid-turn
 function handleDrawerLeft(roomCode, io) {
   const state = gameStates[roomCode];
@@ -304,7 +300,7 @@ if (state.clueState.heroRevealed.length > 0 || state.clueState.heroineRevealed.l
   return true;
 }
 
-function endTurn(roomCode, io, skipPoints = false) {
+function endTurn(roomCode, io, drawerLeft = false) {
   const state = gameStates[roomCode];
   if (!state) return;
 
@@ -312,11 +308,42 @@ function endTurn(roomCode, io, skipPoints = false) {
   clearInterval(state.timerInterval);
   clearInterval(state.clueInterval);
 
+  const connectedGuessers = state.players.filter(
+    (p) => p.name !== state.currentDrawer.name && !p.disconnected
+  );
+  const totalGuessers = connectedGuessers.length;
+  const correctGuessers = state.guessedPlayers.length;
+  const drawer = state.players.find((p) => p.name === state.currentDrawer.name);
+
+  if (!drawerLeft && drawer && totalGuessers > 0) {
+    const guessFraction = correctGuessers / totalGuessers;
+
+    if (correctGuessers === 0) {
+      // Nobody guessed — drawer gets 0
+      drawer.score += 0;
+    } else {
+      // Check if everyone guessed too fast (within 10% of draw time)
+      const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
+      const timeFraction = elapsed / state.drawTime;
+      const tooFast = timeFraction < 0.10 && correctGuessers === totalGuessers;
+
+      if (tooFast) {
+        // Drawing was too obvious — small reward
+        drawer.score += 10;
+      } else {
+        // 50 points per guesser, max 200
+        const drawerPoints = Math.min(200, correctGuessers * 50);
+        drawer.score += drawerPoints;
+      }
+    }
+  }
+
   io.to(roomCode).emit("turn_end", {
     word: state.currentWord.title,
     hero: state.currentWord.hero,
     heroine: state.currentWord.heroine,
     players: state.players,
+    drawerPoints: drawer?.score,
   });
 
   state.drawerIndex++;

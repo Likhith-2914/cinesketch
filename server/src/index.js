@@ -50,6 +50,24 @@ app.use(express.json());
 
 app.get("/", (req, res) => res.send("CineSketch server is running 🎬"));
 
+app.get("/movies/:language", (req, res) => {
+  const { language } = req.params;
+  const { movieCache } = require("./game/roomManager");
+  const movies = movieCache[language];
+  if (!movies) return res.status(404).json({ error: "Language not found" });
+  res.json({
+    language,
+    total: movies.length,
+    movies: movies.map((m) => ({
+      title: m.title,
+      hero: m.hero,
+      heroine: m.heroine,
+      decade: m.decade,
+      difficulty: m.difficulty,
+    })),
+  });
+});
+
 // Initialize movie bank on startup
 initMovieBank();
 scheduleMonthlyRefresh();

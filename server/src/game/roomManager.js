@@ -150,4 +150,5 @@ module.exports = {
   rooms,
   initMovieBank,
   scheduleMonthlyRefresh,
+  movieCache,
 };
