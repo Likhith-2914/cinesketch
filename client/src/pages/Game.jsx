@@ -27,7 +27,14 @@ export default function Game() {
     status: "waiting", // waiting | drawing | roundEnd | gameEnd
     clue: { hero: "", heroine: "" },
     messages: [],
+    options: [],
+    guessLocked: false,
+    guessCorrect: false,
   });
+
+  const submitGuess = (guess) => {
+    socket.emit("submit_guess", { roomCode: code, playerName, guess });
+  };
 
   useEffect(() => {
 
@@ -40,15 +47,26 @@ export default function Game() {
       setGameState((prev) => ({
         ...prev,
         isDrawer: data.isDrawer,
-        word: data.word,
-        wordLength: data.wordLength || data.word.length,
+        word: data.word || "",
         drawer: data.drawer,
         round: data.round,
         totalRounds: data.totalRounds,
         status: "drawing",
-        clue: { hero: null, heroine: null, movieFirstChar: null }, // reset here
+        clue: { hero: null, heroine: null, movieFirstChar: null },
         messages: [],
         players: data.players || prev.players,
+        options: data.options || [],
+        guessLocked: false,
+        guessCorrect: false,
+      }));
+    });
+
+    socket.on("wrong_guess", ({ message }) => {
+      setGameState((prev) => ({
+        ...prev,
+        guessLocked: true,
+        guessCorrect: false,
+        messages: [...prev.messages, { senderName: "System", message, type: "system" }],
       }));
     });
     
@@ -68,17 +86,19 @@ export default function Game() {
         }));
       });
 
-    socket.on("player_guessed", ({ playerName: guesser, players }) => {
-      sounds.correctGuess(); 
-      setGameState((prev) => ({
-        ...prev,
-        players,
-        messages: [
-          ...prev.messages,
-          { senderName: "🎉 System", message: `${guesser} guessed correctly!`, type: "system" },
-        ],
-      }));
-    });
+      socket.on("player_guessed", ({ playerName: guesser, players }) => {
+        sounds.correctGuess();
+        setGameState((prev) => ({
+          ...prev,
+          players,
+          guessLocked: prev.guessLocked || guesser === playerName,
+          guessCorrect: prev.guessCorrect || guesser === playerName,
+          messages: [
+            ...prev.messages,
+            { senderName: "🎉 System", message: `${guesser} guessed correctly!`, type: "system" },
+          ],
+        }));
+      });
 
     socket.on("chat_message", (msg) => {
       setGameState((prev) => ({
@@ -180,42 +200,50 @@ export default function Game() {
           <PlayerList players={gameState.players} currentDrawer={gameState.drawer} />
         </div>
 
-        {/* Center — Canvas + Word */}
+        {/* Center — Canvas + Options */}
         <div className="flex-1 flex flex-col items-center p-2 gap-2">
-          {/* Word / Clue display */}
+
+        {/* Word display for drawer only */}
+        {gameState.isDrawer && (
           <div className="bg-gray-900 rounded-xl px-6 py-2 text-center border border-gray-800 w-full max-w-xl">
-            {gameState.isDrawer ? (
-              <p className="text-yellow-400 font-black text-xl tracking-widest">{gameState.word}</p>
-            ) : (
-              <p className="text-white font-black text-xl tracking-[0.3em]">
-                {gameState.word.split("").map((c, i) => (
-                  <span key={i}>{c === "_" ? "_ " : c + " "}</span>
-                ))}
-              </p>
-            )}
-            <p className="text-gray-500 text-xs mt-1">
-              {gameState.isDrawer ? "You are drawing!" : `${gameState.drawer} is drawing`}
-            </p>
+            <p className="text-yellow-400 font-black text-xl tracking-widest">{gameState.word}</p>
+            <p className="text-gray-500 text-xs mt-1">You are drawing!</p>
           </div>
+        )}
 
-          {/* Clue Panel */}
-          {!gameState.isDrawer && (
-            gameState.clue.hero || gameState.clue.heroine || gameState.clue.movieFirstChar
-              ) && (
-                <CluePanel
-                  heroClue={gameState.clue.hero}
-                  heroineClue={gameState.clue.heroine}
-                  movieFirstChar={gameState.clue.movieFirstChar}
-                />
-              )}
-          {/* Canvas */}
-          <Canvas
-            roomCode={code}
-            isDrawer={gameState.isDrawer}
-            socket={socket}
+        {!gameState.isDrawer && (
+          <div className="text-center text-gray-400 text-sm">
+            ✏️ <span className="text-yellow-400 font-bold">{gameState.drawer}</span> is drawing
+          </div>
+        )}
+
+        {/* Clue Panel for guessers */}
+        {!gameState.isDrawer && (
+          gameState.clue.hero || gameState.clue.heroine
+        ) && (
+          <CluePanel
+            heroClue={gameState.clue.hero}
+            heroineClue={gameState.clue.heroine}
           />
-        </div>
+        )}
 
+        {/* Canvas */}
+        <Canvas
+          roomCode={code}
+          isDrawer={gameState.isDrawer}
+          socket={socket}
+        />
+
+        {/* Options for guessers */}
+        {!gameState.isDrawer && gameState.options.length > 0 && (
+          <Options
+            options={gameState.options}
+            onGuess={submitGuess}
+            locked={gameState.guessLocked}
+            correct={gameState.guessCorrect}
+          />
+        )}
+        </div>
         {/* Right — Chat */}
         <div className="w-64 bg-gray-900 border-l border-gray-800 flex flex-col">
           <Chat
