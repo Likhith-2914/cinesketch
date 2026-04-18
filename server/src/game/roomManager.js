@@ -34,11 +34,13 @@ async function initMovieBank() {
 function scheduleMonthlyRefresh() {
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
   setTimeout(() => {
-    setInterval(async () => {
+    console.log("🔄 Monthly movie bank refresh...");
+    initMovieBank();
+    setInterval(() => {
       console.log("🔄 Monthly movie bank refresh...");
-      await initMovieBank();
+      initMovieBank();
     }, thirtyDays);
-  }, thirtyDays); // wait 30 days before first refresh too
+  }, thirtyDays);
 }
 
 function generateRoomCode() {
