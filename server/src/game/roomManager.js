@@ -29,17 +29,20 @@ async function initMovieBank() {
   }
 }
 
-// Refresh every 30 days
 function scheduleMonthlyRefresh() {
-  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  setTimeout(() => {
-    console.log("🔄 Monthly movie bank refresh...");
-    initMovieBank();
-    setInterval(() => {
+  // Split 30 days into smaller intervals to avoid 32-bit overflow
+  // 30 days = 30 * 24 * 60 = 43200 minutes
+  const oneDay = 24 * 60 * 60 * 1000; // 1 day in ms — safe for 32-bit
+  let daysElapsed = 0;
+
+  const tick = setInterval(() => {
+    daysElapsed++;
+    if (daysElapsed >= 30) {
+      daysElapsed = 0;
       console.log("🔄 Monthly movie bank refresh...");
       initMovieBank();
-    }, thirtyDays);
-  }, thirtyDays);
+    }
+  }, oneDay);
 }
 
 function generateRoomCode() {
