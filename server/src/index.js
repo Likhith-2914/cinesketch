@@ -69,8 +69,15 @@ app.get("/movies/:language", (req, res) => {
 });
 
 // Initialize movie bank on startup
-initMovieBank();
-scheduleMonthlyRefresh();
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  
+  // Fetch movies in background — don't block server startup
+  setTimeout(() => {
+    initMovieBank();
+    scheduleMonthlyRefresh();
+  }, 5000); // 5 second delay after server is ready
+});
 
 io.on("connection", (socket) => {
   console.log(`✅ Player connected: ${socket.id}`);
