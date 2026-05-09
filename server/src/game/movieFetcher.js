@@ -5,8 +5,8 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 const LANGUAGE_CODES = {
   telugu: "te",
   hindi: "hi",
+  english: "en",
 };
-
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {

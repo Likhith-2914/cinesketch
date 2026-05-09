@@ -64,17 +64,24 @@ function startTurn(roomCode, io) {
   state.currentWord = word;
   state.usedWords.push(word.title);
 
+  function getWordPattern(title) {
+    return title
+      .split("")
+      .map((char) => (/[a-zA-Z]/.test(char) ? "_" : char))
+      .join("");
+  }
+
   // Notify all players
   state.players.forEach((player) => {
     const isDrawer = player.id === state.currentDrawer.id;
     io.to(player.id).emit("turn_start", {
-      word: isDrawer ? word.title : "_".repeat(word.title.length),
-      wordLength: word.title.length,
-      isDrawer,
+      isDrawer: false,
       drawer: state.currentDrawer.name,
       round: state.round,
       totalRounds: state.totalRounds,
       players: state.players,
+      wordPattern: getWordPattern(word.title), // e.g. "_________: ___ _________"
+      wordLength: word.title.replace(/[^a-zA-Z]/g, "").length, // only alpha count
     });
   });
 
@@ -147,6 +154,10 @@ function maskName(name, revealedIndices) {
   }).join("");
 }
 
+function stripNonAlpha(str) {
+  return str.toLowerCase().replace(/[^a-z]/g, "");
+}
+
 function checkGuess(roomCode, playerId, playerName, guess, io) {
   const state = gameStates[roomCode];
   if (!state || state.status !== "drawing") return false;
@@ -158,17 +169,17 @@ function checkGuess(roomCode, playerId, playerName, guess, io) {
   if (!player) return false;
   if (state.guessedPlayers.includes(player.name)) return false;
 
+  // Strip non-alpha from both sides before comparing
   const correct =
-    guess.trim().toLowerCase() === state.currentWord.title.toLowerCase();
+    stripNonAlpha(guess) === stripNonAlpha(state.currentWord.title);
 
   if (correct) {
     state.guessedPlayers.push(player.name);
 
     const elapsed = Math.floor((Date.now() - state.turnStartTime) / 1000);
     const timeLeft = Math.max(0, state.drawTime - elapsed);
-    const timeFraction = timeLeft / state.drawTime; // 1.0 = instant, 0.0 = last second
+    const timeFraction = timeLeft / state.drawTime;
 
-    // Guesser points — speed based, min 100
     const guesserPoints = Math.max(100, Math.floor(timeFraction * 500));
     player.score += guesserPoints;
 
@@ -177,7 +188,6 @@ function checkGuess(roomCode, playerId, playerName, guess, io) {
       players: state.players,
     });
 
-    // Check if all connected non-drawers guessed
     const connectedGuessers = state.players.filter(
       (p) => p.name !== state.currentDrawer.name && !p.disconnected
     );
@@ -266,17 +276,17 @@ function rejoinGame(roomCode, playerId, playerName, io, socket) {
   const isDrawer =
     state.currentDrawer?.name.toLowerCase() === playerName.toLowerCase();
 
-  socket.emit("turn_start", {
-    word: isDrawer
-      ? state.currentWord.title
-      : "_".repeat(state.currentWord.title.length),
-    wordLength: state.currentWord.title.length,
-    isDrawer,
-    drawer: state.currentDrawer?.name,
-    round: state.round,
-    totalRounds: state.totalRounds,
-    players: state.players,
-  });
+    socket.emit("turn_start", {
+      word: isDrawer ? state.currentWord.title : null,
+      wordPattern: isDrawer ? null : getWordPattern(state.currentWord.title),
+      wordLength: state.currentWord.title.replace(/[^a-zA-Z]/g, "").length,
+      isDrawer,
+      drawer: state.currentDrawer?.name,
+      round: state.round,
+      totalRounds: state.totalRounds,
+      players: state.players,
+      options: isDrawer ? null : state.currentOptions,
+    });
 
   socket.emit("timer_update", { timeLeft: state.currentTimeLeft || 0 });
 

@@ -8,6 +8,8 @@ export default function Room() {
   const navigate = useNavigate();
   const [room, setRoom] = useState(state?.room || null);
   const playerName = state?.playerName;
+  const [copied, setCopied] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (state?.playerName) {
@@ -50,8 +52,15 @@ export default function Room() {
     }, []);
 
     const copyLink = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/join/${code}`);
-        alert("Link copied!");
+      navigator.clipboard.writeText(`${window.location.origin}/join/${code}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    };
+    
+    const copyCode = () => {
+      navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     };
 
     if (!room) return <div className="text-white p-8">Loading room...</div>;
@@ -61,7 +70,8 @@ export default function Room() {
     );
 
     const handleStart = () => {
-        socket.emit("start_game", { roomCode: code });
+      setStarting(true);
+      socket.emit("start_game", { roomCode: code });
     };
 
   return (
@@ -85,10 +95,20 @@ export default function Room() {
               🔗 Copy Invite Link
             </button>
             <button
-              onClick={() => navigator.clipboard.writeText(code)}
-              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-xl text-sm transition"
+              onClick={copyCode}
+              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
             >
-              📋 Copy Code
+              {copied ? (
+                <span className="text-green-400">✓ Copied!</span>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Copy Code
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -141,13 +161,22 @@ export default function Room() {
 
         {/* Start Button (admin only) */}
         {isAdmin && (
-          <button
-          onClick={handleStart}
-          disabled={room.players.length < 2}
-          className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed text-gray-950 font-black text-xl py-4 rounded-2xl transition"
-            >
-            🎬 Start Game ({room.players.length}/2 min players)
-            </button>
+         <button
+         onClick={handleStart}
+         disabled={room.players.length < 2 || starting}
+         className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed text-gray-950 font-black text-xl py-4 rounded-2xl transition"
+       >
+         {starting ? (
+           <>Starting Game
+             <svg className="animate-spin h-5 w-5 inline-block ml-2" viewBox="0 0 24 24" fill="none">
+               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+             </svg>
+           </>
+         ) : (
+           `🎬 Start Game (${room.players.length}/2 min players)`
+         )}
+       </button>
         )}
         {!isAdmin && (
           <p className="text-center text-gray-500">Waiting for admin to start the game...</p>

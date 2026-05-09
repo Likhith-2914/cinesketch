@@ -15,19 +15,23 @@ export default function Game() {
   const playerName =
     state?.playerName || sessionStorage.getItem(`playerName_${code}`);
 
-  const [gameState, setGameState] = useState({
-    isDrawer: false,
-    word: "",
-    wordLength: 0,
-    drawer: "",
-    round: 1,
-    totalRounds: 3,
-    players: [],
-    timeLeft: 0,
-    status: "waiting", // waiting | drawing | roundEnd | gameEnd
-    clue: { hero: "", heroine: "" },
-    messages: [],
-  });
+    const [gameState, setGameState] = useState({
+      isDrawer: false,
+      word: "",
+      wordPattern: "",
+      wordLength: 0,
+      drawer: "",
+      round: 1,
+      totalRounds: 3,
+      players: [],
+      timeLeft: 0,
+      status: "waiting",
+      clue: { hero: null, heroine: null },
+      messages: [],
+    });
+    
+    // eslint-disable-next-line no-unused-vars
+    const [chatInput, setChatInput] = useState("");
 
   useEffect(() => {
 
@@ -40,16 +44,18 @@ export default function Game() {
       setGameState((prev) => ({
         ...prev,
         isDrawer: data.isDrawer,
-        word: data.word,
-        wordLength: data.wordLength || data.word.length,
+        word: data.word || "",
+        wordPattern: data.wordPattern || "",
+        wordLength: data.wordLength || 0,
         drawer: data.drawer,
         round: data.round,
         totalRounds: data.totalRounds,
         status: "drawing",
-        clue: { hero: null, heroine: null, movieFirstChar: null }, // reset here
+        clue: { hero: null, heroine: null },
         messages: [],
         players: data.players || prev.players,
       }));
+      setChatInput("");
     });
     
       socket.on("timer_update", ({ timeLeft }) => {
@@ -183,20 +189,33 @@ export default function Game() {
         {/* Center — Canvas + Word */}
         <div className="flex-1 flex flex-col items-center p-2 gap-2">
           {/* Word / Clue display */}
-          <div className="bg-gray-900 rounded-xl px-6 py-2 text-center border border-gray-800 w-full max-w-xl">
-            {gameState.isDrawer ? (
-              <p className="text-yellow-400 font-black text-xl tracking-widest">{gameState.word}</p>
-            ) : (
-              <p className="text-white font-black text-xl tracking-[0.3em]">
-                {gameState.word.split("").map((c, i) => (
-                  <span key={i}>{c === "_" ? "_ " : c + " "}</span>
-                ))}
-              </p>
-            )}
-            <p className="text-gray-500 text-xs mt-1">
-              {gameState.isDrawer ? "You are drawing!" : `${gameState.drawer} is drawing`}
-            </p>
-          </div>
+          {/* Word display */}
+<div className="bg-gray-900 rounded-xl px-6 py-3 text-center border border-gray-800 w-full max-w-xl">
+  {gameState.isDrawer ? (
+    <>
+      <p className="text-yellow-400 font-black text-xl tracking-widest">
+        {gameState.word}
+      </p>
+      <p className="text-gray-500 text-xs mt-1">You are drawing!</p>
+    </>
+  ) : (
+    <>
+      <div className="flex flex-wrap justify-center gap-1 text-xl font-black tracking-widest">
+        {gameState.wordPattern.split("").map((char, i) => (
+          <span
+            key={i}
+            className={char === "_" ? "text-white border-b-2 border-gray-500 px-1" : "text-yellow-400 px-0.5"}
+          >
+            {char === "_" ? "\u00A0" : char}
+          </span>
+        ))}
+      </div>
+      <p className="text-gray-500 text-xs mt-2">
+        ✏️ <span className="text-yellow-400 font-bold">{gameState.drawer}</span> is drawing
+      </p>
+    </>
+  )}
+</div>
 
           {/* Clue Panel */}
           {!gameState.isDrawer && (
@@ -218,12 +237,13 @@ export default function Game() {
 
         {/* Right — Chat */}
         <div className="w-64 bg-gray-900 border-l border-gray-800 flex flex-col">
-          <Chat
-            messages={gameState.messages}
-            onSend={sendMessage}
-            isDrawer={gameState.isDrawer}
-            playerName={playerName}
-          />
+        <Chat
+  messages={gameState.messages}
+  onSend={sendMessage}
+  isDrawer={gameState.isDrawer}
+  playerName={playerName}
+  wordLength={gameState.wordLength}
+/>
         </div>
       </div>
     </div>

@@ -2,30 +2,33 @@ const rooms = {};
 const { fetchMoviesForLanguage } = require("./movieFetcher");
 const fallbackTelugu = require("../../../shared/words/telugu");
 
-// Cache per language
 const movieCache = {
   telugu: null,
   hindi: null,
+  english: null,
   lastFetched: null,
 };
 
 async function initMovieBank() {
   console.log("🎬 Initializing movie banks...");
   try {
-    const [telugu, hindi] = await Promise.all([
+    const [telugu, hindi, english] = await Promise.all([
       fetchMoviesForLanguage("telugu", 8),
       fetchMoviesForLanguage("hindi", 8),
+      fetchMoviesForLanguage("english", 8),
     ]);
 
     movieCache.telugu = telugu?.length ? telugu : fallbackTelugu;
     movieCache.hindi = hindi?.length ? hindi : fallbackTelugu;
+    movieCache.english = english?.length ? english : fallbackTelugu;
     movieCache.lastFetched = new Date();
 
-    console.log(`✅ Movie banks ready — Telugu: ${movieCache.telugu.length}, Hindi: ${movieCache.hindi.length}`);
+    console.log(`✅ Movie banks ready — Telugu: ${movieCache.telugu.length}, Hindi: ${movieCache.hindi.length}, English: ${movieCache.english.length}`);
   } catch (e) {
     console.error("❌ Movie bank init failed:", e.message);
     movieCache.telugu = fallbackTelugu;
     movieCache.hindi = fallbackTelugu;
+    movieCache.english = fallbackTelugu;
   }
 }
 
@@ -119,19 +122,31 @@ function leaveRoom(code, playerId) {
 }
 
 function getWordBank(language, decade, difficulty) {
-  let movies = movieCache[language] || fallbackTelugu;
+  // Handle multiple languages e.g. "telugu,hindi,english"
+  const languages = language.split(",").map((l) => l.trim());
+  let movies = [];
+
+  languages.forEach((lang) => {
+    const langMovies = movieCache[lang] || fallbackTelugu;
+    movies = [...movies, ...langMovies];
+  });
+
+  // Remove duplicates by title
+  movies = movies.filter(
+    (m, index, self) => index === self.findIndex((t) => t.title === m.title)
+  );
 
   if (decade !== "all") {
     const decades = decade.split(",");
     movies = movies.filter((m) => decades.includes(m.decade));
   }
+
   if (difficulty !== "all") {
     movies = movies.filter((m) => m.difficulty === difficulty);
   }
 
-  // If filters leave too few movies, relax filters
   if (movies.length < 10) {
-    movies = movieCache[language] || fallbackTelugu;
+    movies = languages.flatMap((lang) => movieCache[lang] || fallbackTelugu);
   }
 
   return [...movies].sort(() => Math.random() - 0.5);
